@@ -1,0 +1,171 @@
+{
+  "name": "วิเคราห์ สินค้าที่อันตราย",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "a2b5deee-39e3-4634-9297-3dcffb0e5b2d",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        40,
+        500
+      ],
+      "id": "f6ea2384-2bcf-42b2-8d53-d458faf47393",
+      "name": "Webhook",
+      "webhookId": "a2b5deee-39e3-4634-9297-3dcffb0e5b2d"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.product }}",
+        "options": {
+          "systemMessage": "คุณคือผู้เชี่ยวชาญด้านความปลอดภัยของสินค้าในตู้คอนเทนเนอร์\n\nเมื่อได้รับ JSON ที่มีฟิลด์ \"ProductList\" ให้คุณวิเคราะห์ว่าสินค้าในนั้น **ปลอดภัย** หรือ **อันตราย** สำหรับการจัดเก็บในตู้คอนเทนเนอร์\n\n**คำตอบของคุณต้องอยู่ในรูปแบบ JSON เท่านั้น** และต้องเลือกแค่หนึ่งคำระหว่าง:\n\n- \"Safe\"\n- \"Dangerous\"\n\n### ตัวอย่าง output ที่คุณต้องส่ง:\n{ \"ProductType\": \"Safe\" } หรือ { \"ProductType\": \"Dangerous\" }\n\nข้อมูลที่ได้รับ:\n{\n  \"ProductList\": \"สารเคมี Ammonium nitrate (granular or powdered), ปริมาณ 10,000 ตัน\"\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        400,
+        500
+      ],
+      "id": "3af3dd0b-c2f2-4385-bbad-fd5eb3186200",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:3b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        380,
+        720
+      ],
+      "id": "e772586b-e7da-4c6c-a2a2-ab39fc7979b6",
+      "name": "Ollama Chat Model1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "e8aDksL2wVpbPmhs",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.product }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        500,
+        720
+      ],
+      "id": "ccfa4a03-1e9e-40f7-8c01-9d470528b658",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "jsCode": "let productType = \"Unknown\";\n\nif ($input.first().json.output.includes('\"ProductType\": \"Dangerous\"')) {\n  productType = \"Dangerous\";\n} else if ($input.first().json.output.includes('\"ProductType\": \"Safe\"')) {\n  productType = \"Safe\";\n}\n\nreturn [\n  {\n    json: {\n      ProductType: productType\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        500
+      ],
+      "id": "4d4879b2-a1bc-425a-8b31-1ddb19929430",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseKey": "={{ $json.ProductType }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1320,
+        500
+      ],
+      "id": "731cc16b-083f-4958-a8dc-fc205ff17421",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "64f38357-2692-40df-add3-301ce333fbec",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "db1ef16ee8212f4bc100bcb47bf371abb71f739932fe038aaa3c1002093dba18"
+  },
+  "id": "PKBqpY6Z2wahJwWC",
+  "tags": []
+}
